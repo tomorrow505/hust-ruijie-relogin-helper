@@ -15,7 +15,7 @@
 
 [![a1.png](https://www.z4a.net/images/2022/04/02/a1.png)](https://www.z4a.net/image/2HWPDN)
 
-2. 访问192.168.50.3，打开fiddler看请求：
+2. 打开fiddler访问192.168.50.3:8080，看请求：
 
 [![a2.png](https://www.z4a.net/images/2022/04/02/a2.png)](https://www.z4a.net/image/2HWM4w)
 
