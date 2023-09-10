@@ -1,13 +1,15 @@
 # hust-ruijie-relogin-helper
-华科锐捷认证重连工具-基于网页认证。
+华科锐捷认证重连工具-基于网页认证。（2023.09.10）
 
 ### 前言
 
 ----
 
-最近的第二次更新，因为学校最近实行某种策略，3点左右断网，然后最近给别人配的时候不熟练的话不是很方便，所以索性再更新一次，以前的直接删掉了，最后有封装好的桌面程序，可以跳过代码分析直接下载。程序设置为开机自启动，一分钟检验一次。
+最近的第二次更新，因为学校最近实行某种策略，3点左右断网，然后最近给别人配的时候不熟练的话不是很方便，所以索性再更新一次，以前的直接删掉了，最后有封装好的桌面程序，可以跳过代码分析直接下载。程序设置为开机自启动，一分钟检验一次。<br>
 
-### 思路
+**New-> 2023.09.09看到有人反馈失效了，提示密码要加密，所以连忙又搞了一个加密版本。**
+
+### 更新后的思路
 
 之前是F12直接抓请求拿加密的密码和querystring，现在把这个过程也给剖开了，因为最近F12不太好拿，所以使用了Fiddler工具，这是个抓包的软件，配置过程就不说了。我们断网看看请求过程：
 
@@ -19,6 +21,8 @@
 
 [![a2.png](https://www.z4a.net/images/2022/04/02/a2.png)](https://www.z4a.net/image/2HWM4w)
 
+![image](https://github.com/tomorrow505/hust-ruijie-relogin-helper/assets/32202634/30eb3c1a-db31-49fb-b87b-a1b7fc4af2d1)
+
 [![a4.png](https://www.z4a.net/images/2022/04/03/a4.png)](https://www.z4a.net/image/2HuvyJ)
 
 我们发现第一个图的前两个请求都是302，然后会有一个200的请求到123.123.123.123，然后第5个请求就是我们之前页面跳转之后登陆页面网址。然后第二个图进入到一个method=login的请求，这肯定就是我们需要模拟的登录请求了。
@@ -27,15 +31,16 @@
 
 [![a6.png](https://www.z4a.net/images/2022/04/03/a6.png)](https://www.z4a.net/image/2HufKr)
 
-从webform我们可以知道提交了我们的学号，然后密码变成了一串不认识的东西，还有一些空的字段。然后querystring是不是很眼熟，其实就是登陆页面网址的后半部分，这个根据最后的经验是一个跟本机mac地址等相关的一个字符串，具体怎么生成的暂时不追究了，猜想是请求123.123.123.123的时候根据请求头自动生成的。以及最后一个passwordEncrypt，默认为true。我们知道一个form提交一般都会有对应name的input框，所以进入F12查看元素：
+从webform我们可以知道提交了我们的学号，然后密码变成了一串不认识的东西，还有一些空的字段。然后querystring是不是很眼熟，其实就是登陆页面网址的后半部分，这个根据最后的经验是一个跟本机mac地址等相关的一个字符串，具体怎么生成的暂时不追究了，猜想是请求123.123.123.123的时候根据请求头自动生成的。以及最后一个passwordEncrypt，默认为true。也就是说默认是加密的了现在，之前改成false就可以直接使用密码登录，现在需要加密一下，我们需要探索一下加密过程：
 
-[![a7.png](https://www.z4a.net/images/2022/04/03/a7.png)](https://www.z4a.net/image/2HuDnj)
+![image](https://github.com/tomorrow505/hust-ruijie-relogin-helper/assets/32202634/80b44ad2-2d0c-4a17-a8e3-0a3f2bc4b8d9)
 
-发现这个东西是hidden的，也就是页面不会展示的，于是乎退出网络将它改成false再度登录查看表单数据：
+点开源代码的js文件看到了这么几行，然后是调用的security.js，那么使用python模拟这几行的过程就可以了呀，大致为使用RSA进行加密，其中有两个重要参数publicKeyExponent和publicKeyModulus。
 
-[![a8.png](https://www.z4a.net/images/2022/04/03/a8.png)](https://www.z4a.net/image/2Hu3hO)
+这两个在登录页面上是可以看到的，但是如何通过请求来获取呢？图2有一个pageinfo请求就可以得到了~提交的也就是querystring。
 
-此时的密码已经变成明文的了，也就是说我们只要获取querystring基本就ok了。
+![image](https://github.com/tomorrow505/hust-ruijie-relogin-helper/assets/32202634/bf559b77-e8fd-4a0e-b5e4-ce95241f4aef)
+
 
 仔细查看点开看图1第3个请求：看到返回的数据大致就明白了，跟我们猜想的基本一致。有线和无线可能网址还不一样，无线好像是178开头的，所以我们需要从上述请求返回值得到两个东西：192.168.50.3和wlanuserip开头到结束的部分。
 
@@ -82,32 +87,65 @@ def get_response():
         print("当前网络状态出现问题~~")
         relogin()
 
+def get_password(pwd, exponent, modulus):
+    e = int(exponent, 16)
+    m = int(modulus, 16)
+    # 16进制转10进制
+    t = pwd.encode('utf-8')
+    # 字符串逆向并转换为bytes
+    input_nr = int.from_bytes(t, byteorder='big')
+    # 将字节转化成int型数字，如果没有标明进制，看做ascii码值
+    crypt_nr = pow(input_nr, e, m)
+    # 计算x的y次方，如果z在存在，则再对结果进行取模，其结果等效于pow(x,y) %z
+    length = ceil(m.bit_length() / 8)
+    # 取模数的比特长度(二进制长度)，除以8将比特转为字节
+    crypt_data = crypt_nr.to_bytes(length, byteorder='big')
+    # 将密文转换为bytes存储(8字节)，返回hex(16字节)
+    return crypt_data.hex()
+
         
 def relogin(uid, pwd):
-    info = get_info()
-    url = "{url}eportal/InterFace.do?method=login".format(url=info["url"])
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/96.0.4664.45 Safari/537.36",
         "Content-Type": "application/x-www-form-urlencoded",
         "charset": "UTF-8",
     }
-    data = "userId="+str(uid)+"&password="+str(pwd)+"&service=&queryString=" + \
-        info["querystr"] + "&operatorPwd=&operatorUserId=&validcode=&passwordEncrypt=false"
-
     session = requests.session()
-    req = session.post(url=url, headers=headers, data=data).json()
+    pageinfo_url = "{url}eportal/InterFace.do?method=pageInfo".format(url=info["url"])
+    page_data = {
+        "queryString": info["querystr"]
+    }
+    req = session.post(pageinfo_url, headers=headers, data=page_data).json()
+    exponent = req["publicKeyExponent"]
+    modulus = req["publicKeyModulus"]
+    password = get_password(pwd, exponent, modulus)
+
+    login_url = "{url}eportal/InterFace.do?method=login".format(url=info["url"])
+
+    login_data = {
+        "userId": str(uid),
+        "password": password,
+        "service": "",
+        "queryString": info["querystr"],
+        "operatorPwd": "",
+        "operatorUserId": "",
+        "validcode": "",
+        "passwordEncrypt": "true"
+    }
+    req = session.post(url=login_url, headers=headers, data=login_data).json()
     if req["result"] == "fail":
         return "重新认证失败：" + req["message"]
     return "重新认证成功~~~"
 ```
 
-由于我们在headers那里指定了Content-Type为application/x-www-form-urlencoded，所以data直接是urlencode形式拼接，也可以指定为json然后提交字典。然后需要提供的就是用户的id和密码。
+先是获取querystring，然后通过pageInfo获取加密的指数和模块，接着是在网上找到的不填充版本的加密代码获取加密后的密码（使用浏览器页面的js代码做验证），最后提交认证。
 
 ### 打包
 
 ---
 
-基本上源代码已经差不多了，整理一下就可以了，为了方便使用，这里封装好了一个可以用的exe程序，发布到蝴蝶了，使用方式就是在yml文件里指定id和密码，然后一分钟运行一次，方便的话可以设置为开机启动。
+基本上源代码已经差不多了，整理一下就可以了，为了方便使用，这里重新封装好了一个可以用的exe程序，仍然发布到蝴蝶，使用方式就是在yml文件里指定id和密码，然后一分钟运行一次，方便的话可以设置为开机启动。
 
 ```yaml
 info:
@@ -119,17 +157,14 @@ info:
 运行途中如果出现掉网会记录log：
 
 ```javascript
-11/29/2021 19:16:40 PM - INFO - get_response - 2021-11-29 19:16:40
-11/29/2021 19:16:40 PM - INFO - get_response - Error occurred HTTPSConnectionPool(host='www.baidu.com', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed (_ssl.c:777)'),))
-11/29/2021 19:16:40 PM - INFO - get_response - Relogin {"userIndex":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxx","result":"success","message":"","forwordurl":null,"keepaliveInterval":0,"validCodeUrl":""}
+09/10/2023 12:10:39 PM - Error: 当前网络状态出现问题~~
+09/10/2023 12:10:39 PM - Relogin 重新认证成功~~~
+09/10/2023 12:12:58 PM - Error: 当前网络状态出现问题~~
+09/10/2023 12:12:58 PM - Relogin 重新认证成功~~~
 ```
 
 
 上述result显示success即可。
-
-下载地址：https://cloud.tomorrow505.xyz/index.php/s/DTFYgSgWmpnDibF
-
-为了备份：https://github.com/tomorrow505/hust-ruijie-relogin-helper
 
 ### 总结
 
