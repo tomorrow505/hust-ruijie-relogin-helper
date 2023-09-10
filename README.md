@@ -35,14 +35,14 @@
 
 ![image](https://github.com/tomorrow505/hust-ruijie-relogin-helper/assets/32202634/80b44ad2-2d0c-4a17-a8e3-0a3f2bc4b8d9)
 
-点开源代码的js文件看到了这么几行，然后是调用的security.js，那么使用python模拟这几行的过程就可以了呀，大致为使用RSA进行加密，其中有两个重要参数publicKeyExponent和publicKeyModulus。
+点开源代码的js文件看到了这么几行，然后是调用的security.js，那么使用python模拟这几行的过程就可以了，大致为使用RSA进行加密，其中有两个重要参数publicKeyExponent和publicKeyModulus。
 
 这两个在登录页面上是可以看到的，但是如何通过请求来获取呢？图2有一个pageinfo请求就可以得到了~提交的也就是querystring。
 
 ![image](https://github.com/tomorrow505/hust-ruijie-relogin-helper/assets/32202634/bf559b77-e8fd-4a0e-b5e4-ce95241f4aef)
 
 
-仔细查看点开看图1第3个请求：看到返回的数据大致就明白了，跟我们猜想的基本一致。有线和无线可能网址还不一样，无线好像是178开头的，所以我们需要从上述请求返回值得到两个东西：192.168.50.3和wlanuserip开头到结束的部分。
+接下来就是要探索querystring怎么用代码获取，仔细查看点开看图1第3个请求：看到返回的数据大致就明白了，跟我们猜想的基本一致。有线和无线可能网址还不一样，无线好像是178开头的，所以我们需要从上述请求返回值得到两个东西：192.168.50.3和wlanuserip开头到结束的部分。
 
 [![a3.png](https://www.z4a.net/images/2022/04/02/a3.png)](https://www.z4a.net/image/2HWIOC)
 
